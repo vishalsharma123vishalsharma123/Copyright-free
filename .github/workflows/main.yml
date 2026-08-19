@@ -15,12 +15,12 @@ jobs:
 
     steps:
 
-      - name: Checkout source code
+      - name: Checkout project
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup Java 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -28,126 +28,133 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
 
       - name: Check project
         run: |
-          echo "Checking Android project..."
-          ls -la
-          find . -maxdepth 2 -type f | sort | head -200
+          echo "Project files:"
+          find . -maxdepth 3 -type f | sort | head -300
 
-      - name: Make Gradle executable
+      - name: Create Gradle Wrapper if missing
         run: |
-          if [ -f "./gradlew" ]; then
+          if [ ! -f "./gradlew" ]; then
+            echo "gradlew is missing."
+            echo "Creating Gradle Wrapper automatically..."
+
+            gradle wrapper --gradle-version 8.10.2
+
             chmod +x ./gradlew
+
+            echo "Gradle Wrapper created successfully."
           else
-            echo "ERROR: gradlew file is missing."
-            exit 1
+            echo "gradlew already exists."
+            chmod +x ./gradlew
           fi
 
-      - name: First Android build
-        id: first_build
+      - name: Verify Gradle Wrapper
+        run: |
+          ls -la gradlew
+          ./gradlew --version
+
+      - name: Build Android APK
+        id: build
         continue-on-error: true
         run: |
           ./gradlew clean assembleDebug --stacktrace 2>&1 | tee build-error.log
           exit ${PIPESTATUS[0]}
 
+      - name: Upload build error
+        if: steps.build.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-error-log
+          path: build-error.log
+
       - name: Install Gemini CLI
-        if: steps.first_build.outcome == 'failure'
+        if: steps.build.outcome == 'failure'
         run: |
           npm install -g @google/gemini-cli
 
-      - name: AI automatic repair
-        if: steps.first_build.outcome == 'failure'
+      - name: Automatic AI Repair
+        if: steps.build.outcome == 'failure'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           gemini -p "
-          You are an autonomous Android project repair agent.
+          Act as an autonomous Android build repair engineer.
 
-          IMPORTANT:
-          Do not only explain errors.
-          You must actually modify the repository files.
+          The Android project failed to build.
 
-          The Android project in this GitHub repository failed to build.
+          Read the entire repository and read build-error.log.
 
-          Read:
-          - the complete project structure
-          - build-error.log
-          - Gradle files
-          - settings.gradle.kts
-          - build.gradle.kts
-          - app module
-          - AndroidManifest.xml
-          - Kotlin/Java source
-          - resources
+          DO NOT only explain the error.
+
+          ACTUALLY FIX THE PROJECT.
+
+          Check and repair:
+          - Gradle configuration
+          - Android Gradle Plugin
+          - Kotlin
+          - Java
           - dependencies
-
-          Find the ROOT CAUSE of the build failure.
-
-          Automatically repair:
-          - Kotlin/Java compilation errors
-          - Gradle errors
-          - dependency conflicts
-          - missing dependencies
-          - incorrect plugin versions
-          - Android SDK configuration
-          - namespace problems
-          - manifest problems
-          - resource problems
+          - repositories
+          - namespace
+          - AndroidManifest.xml
+          - resources
+          - Kotlin source
+          - Java source
           - imports
-          - incompatible APIs
-          - incorrect project configuration
+          - SDK configuration
+          - compileSdk
+          - targetSdk
+          - minSdk
+          - duplicate resources
+          - missing files
+          - incompatible versions
+          - build configuration
 
-          Do not delete working app functionality just to make the
-          build pass.
+          Preserve the existing application functionality.
 
-          Make the smallest safe changes possible.
+          Do not delete features just to make the build pass.
 
-          After making changes, run:
+          After every repair run:
 
           ./gradlew clean assembleDebug --stacktrace
 
-          If the build fails again:
+          If it fails again, read the NEW error and fix it.
 
-          1. Read the new error.
-          2. Find its root cause.
-          3. Fix the files.
-          4. Run the build again.
+          Continue the repair -> build -> inspect error cycle
+          until the APK builds successfully.
 
-          Continue this repair-build-test cycle until:
-
-          BUILD SUCCESSFULLY COMPLETES
-
-          The final objective is:
+          The final required output is:
 
           app/build/outputs/apk/debug/*.apk
 
-          Do not stop at an explanation.
-          Do not merely tell me what is wrong.
-          Actually repair the project and verify the APK build.
+          Do not stop at explaining the problem.
+          Modify the files and verify the final APK.
           "
 
-      - name: Final verification build
+      - name: Final build
         run: |
           chmod +x ./gradlew
           ./gradlew clean assembleDebug --stacktrace
 
       - name: Find APK
         run: |
-          echo "===================================="
-          echo "APK FILES"
-          echo "===================================="
+          echo "======================================"
+          echo "ANDROID APK"
+          echo "======================================"
           find . -type f -name "*.apk" -print
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Android-APK
-          path: |
-            app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
-      - name: Commit automatic repairs
+      - name: Save automatic fixes
         run: |
           git config user.name "GitHub Auto Repair"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
