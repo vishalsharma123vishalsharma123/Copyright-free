@@ -1,33 +1,39 @@
-package com.example
+name: Build Android APK
 
-import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.activity.viewModels
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.ui.Modifier
-import com.example.ui.MainViewModel
-import com.example.ui.screens.HomeScreen
-import com.example.ui.theme.MyApplicationTheme
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
 
-class MainActivity : ComponentActivity() {
-    private val viewModel: MainViewModel by viewModels()
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContent {
-            MyApplicationTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    HomeScreen(viewModel = viewModel)
-                }
-            }
-        }
-    }
-}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+
+    - name: Ensure gradlew is executable
+      run: |
+        if [ ! -f "gradlew" ]; then
+          gradle wrapper
+        fi
+        chmod +x gradlew
+
+    - name: Build APK
+      run: ./gradlew assembleDebug --no-daemon
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: CopyrightFreeStudio-App-APK
+        path: app/build/outputs/apk/debug/app-debug.apk
