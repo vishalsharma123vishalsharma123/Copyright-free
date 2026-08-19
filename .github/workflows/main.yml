@@ -1,39 +1,23 @@
-name: Build Android APK
-
-on:
-  push:
-    branches: [ "main", "master" ]
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '17'
-
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v3
-
-    - name: Ensure gradlew is executable
-      run: |
-        if [ ! -f "gradlew" ]; then
-          gradle wrapper
-        fi
-        chmod +x gradlew
-
-    - name: Build APK
-      run: ./gradlew assembleDebug --no-daemon
-
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: CopyrightFreeStudio-App-APK
-        path: app/build/outputs/apk/debug/app-debug.apk
+Mere GitHub repository ke source code se ek complete, production-ready Android app taiyar karo.
+Sabse pehle poore repository ko scan karo aur project structure, dependencies, Gradle configuration, AndroidManifest, resources, Kotlin/Java code aur build configuration ko check karo.
+Agar project me koi error, missing dependency, incompatible version, broken import, Gradle error, resource error, manifest error, compile error, runtime-risk ya configuration problem mile, to us problem ko automatically identify karke khud fix karo.
+Kisi bhi error ko ignore mat karo. Fix karne ke baad project ko dobara build aur test karo. Agar build fail ho, to error log ko analyze karke root cause identify karo, fix karo aur dobara build karo.
+Ye process automatically repeat karo jab tak:
+Project successfully compile na ho.
+Android APK successfully generate na ho.
+Required tests/checks pass na ho.
+Koi obvious build-blocking error remaining na ho.
+Existing working functionality ko unnecessarily remove ya change mat karo. Agar dependency/version conflict ho to compatible stable version choose karo. Missing files ya configuration required ho to appropriate files automatically create/update karo.
+Final app ko Android phone par install karne ke liye properly configured APK ke roop me build karo.
+Build complete hone se pehle final verification karo:
+Clean build
+Debug/Release build as appropriate
+APK generation
+Dependency resolution
+Manifest validation
+Resource validation
+Kotlin/Java compilation
+Basic automated tests where available
+Agar kisi fix ke baad naya error aaye, to usko bhi automatically diagnose aur fix karo.
+Mujhe beech me unnecessary questions mat pucho. Available source code aur error logs ke basis par reasonable technical decisions khud lo.
+Final objective: GitHub repository ko automatically repair, test, build aur verify karke ek working Android APK ready karna hai. Jab tak build successfully complete na ho, troubleshooting continue karo.
